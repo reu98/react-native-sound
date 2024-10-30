@@ -5,7 +5,6 @@ import android.content.res.AssetFileDescriptor;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnCompletionListener;
 import android.media.MediaPlayer.OnErrorListener;
-import android.net.Uri;
 import android.media.AudioManager;
 
 import com.facebook.react.bridge.Arguments;
@@ -17,7 +16,6 @@ import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
-import com.facebook.react.modules.core.ExceptionsManagerModule;
 
 import java.io.File;
 import java.util.HashMap;
@@ -31,9 +29,10 @@ public class RNSoundModule extends ReactContextBaseJavaModule implements AudioMa
   ReactApplicationContext context;
   final static Object NULL = null;
   String category;
-  Boolean mixWithOthers = true;
+  Boolean mixWithOthers = false;
   Double focusedPlayerKey;
   Boolean wasPlayingBeforeFocusChange = false;
+  Boolean _isSpeakerphoneOn = true;
 
   public RNSoundModule(ReactApplicationContext context) {
     super(context);
@@ -98,8 +97,10 @@ public class RNSoundModule extends ReactContextBaseJavaModule implements AudioMa
           Log.e("RNSoundModule", String.format("Unrecognised category %s", module.category));
           break;
       }
+
+      Log.d("TEST HIHI", "category " + category);
       if (category != null) {
-        player.setAudioStreamType(category);
+        player.setAudioStreamType(_isSpeakerphoneOn ? AudioManager.STREAM_MUSIC : AudioManager.STREAM_VOICE_CALL);
       }
     }
 
@@ -143,6 +144,7 @@ public class RNSoundModule extends ReactContextBaseJavaModule implements AudioMa
       }
     });
 
+
     try {
       if(options.hasKey("loadSync") && options.getBoolean("loadSync")) {
         player.prepare();
@@ -159,6 +161,8 @@ public class RNSoundModule extends ReactContextBaseJavaModule implements AudioMa
   protected MediaPlayer createMediaPlayer(final String fileName) {
     int res = this.context.getResources().getIdentifier(fileName, "raw", this.context.getPackageName());
     MediaPlayer mediaPlayer = new MediaPlayer();
+    Log.d("TEST HIHI", "1" + _isSpeakerphoneOn);
+    mediaPlayer.setAudioStreamType(_isSpeakerphoneOn ? AudioManager.STREAM_MUSIC : AudioManager.STREAM_VOICE_CALL);
     if (res != 0) {
       try {
         AssetFileDescriptor afd = context.getResources().openRawResourceFd(res);
@@ -172,7 +176,6 @@ public class RNSoundModule extends ReactContextBaseJavaModule implements AudioMa
     }
 
     if (fileName.startsWith("http://") || fileName.startsWith("https://")) {
-      mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
       Log.i("RNSoundModule", fileName);
       try {
         mediaPlayer.setDataSource(fileName);
@@ -207,7 +210,6 @@ public class RNSoundModule extends ReactContextBaseJavaModule implements AudioMa
     
     File file = new File(fileName);
     if (file.exists()) {
-      mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
       Log.i("RNSoundModule", fileName);
       try {
           mediaPlayer.setDataSource(fileName);
@@ -219,6 +221,11 @@ public class RNSoundModule extends ReactContextBaseJavaModule implements AudioMa
     }
 
     return null;
+  }
+
+  private void setIsSpeakerOn(Boolean isSpeakerOn) {
+    Log.d("TEST HIHI", "setIsSpeakerOn" + isSpeakerOn);
+    _isSpeakerphoneOn = isSpeakerOn;
   }
 
   @ReactMethod
@@ -239,7 +246,7 @@ public class RNSoundModule extends ReactContextBaseJavaModule implements AudioMa
     if (!this.mixWithOthers) {
       AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
 
-      audioManager.requestAudioFocus(this, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+      audioManager.requestAudioFocus(this, _isSpeakerphoneOn ? AudioManager.STREAM_MUSIC : AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN);
 
       this.focusedPlayerKey = key;
     }
@@ -294,6 +301,28 @@ public class RNSoundModule extends ReactContextBaseJavaModule implements AudioMa
   }
 
   @ReactMethod
+  public void setSpeakerDefault() {
+    AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+    audioManager.requestAudioFocus(this,  AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+    audioManager.setSpeakerphoneOn(true);
+  }
+
+  @ReactMethod
+    public void switchAudioOutput(Boolean isSpeckerPhoneOn) {
+        AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+        Boolean isSpeakerPhoneOn = _isSpeakerphoneOn;
+        Log.d("TEST HIHI", isSpeakerPhoneOn + "");
+        if (isSpeakerPhoneOn) {
+            audioManager.setSpeakerphoneOn(false);
+        } else {
+            audioManager.setSpeakerphoneOn(true);
+        }
+
+        _isSpeakerphoneOn = !isSpeakerPhoneOn;
+    }
+
+  @ReactMethod
   public void stop(final Double key, final Callback callback) {
     MediaPlayer player = this.playerPool.get(key);
     if (player != null && player.isPlaying()) {
@@ -304,6 +333,7 @@ public class RNSoundModule extends ReactContextBaseJavaModule implements AudioMa
     // Release audio focus in Android system
     if (!this.mixWithOthers && key == this.focusedPlayerKey) {
       AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+
       audioManager.abandonAudioFocus(this);
     }
 
@@ -361,7 +391,7 @@ public class RNSoundModule extends ReactContextBaseJavaModule implements AudioMa
     try {
       AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
 
-      callback.invoke((float) audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
+      callback.invoke((float) audioManager.getStreamVolume(_isSpeakerphoneOn ? AudioManager.STREAM_MUSIC : AudioManager.STREAM_VOICE_CALL) / audioManager.getStreamMaxVolume(_isSpeakerphoneOn ? AudioManager.STREAM_MUSIC : AudioManager.STREAM_VOICE_CALL));
     } catch (Exception error) {
       WritableMap e = Arguments.createMap();
       e.putInt("code", -1);
@@ -374,8 +404,8 @@ public class RNSoundModule extends ReactContextBaseJavaModule implements AudioMa
   public void setSystemVolume(final Float value) {
     AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
 
-    int volume = Math.round(audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) * value);
-    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0);
+    int volume = Math.round(audioManager.getStreamMaxVolume(_isSpeakerphoneOn ? AudioManager.STREAM_MUSIC : AudioManager.STREAM_VOICE_CALL) * value);
+    audioManager.setStreamVolume(_isSpeakerphoneOn ? AudioManager.STREAM_MUSIC : AudioManager.STREAM_VOICE_CALL, volume, 0);
   }
 
   @ReactMethod

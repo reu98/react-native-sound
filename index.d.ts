@@ -41,6 +41,10 @@ declare class Sound {
    */
   static setCategory(category: AVAudioSessionCategory, mixWithOthers?: boolean): void
 
+  static switchAudioOutput(isSpeckerPhoneOn:  boolean): void;
+
+  static setSpeakerDefault(): void;
+
   /**
    * Sets AVAudioSession mode, which works in conjunction with the category to determine audio mixing behavior.
    * Parameter options: "Default", "VoiceChat", "VideoChat", "GameChat", "VideoRecording", "Measurement", "MoviePlayback", "SpokenAudio".
@@ -128,14 +132,14 @@ declare class Sound {
   /**
    * Return the loop count of the audio player.
    * The default is 0 which means to play the sound once.
-   * On iOS a positive number specifies the number of times to return to the start and play again, a negative number indicates an indefinite loop.
-   * On Android any non-zero value indicates an indefinite loop.
+   * A positive number specifies the number of times to return to the start and play again.
+   * A negative number indicates an indefinite loop.
    */
   getNumberOfLoops(): number
 
   /**
    * Set the loop count
-   * @param value - iOS: 0 means to play the sound once, a positive number specifies the number of times to return to the start and play again, a negative number indicates an indefinite loop. Android: 0 means to play the sound once, other numbers indicate an indefinite loop.
+   * @param value - 0 means to play the sound once. A positive number specifies the number of times to return to the start and play again (iOS only). A negative number indicates an indefinite loop (iOS and Android).
    */
   setNumberOfLoops(value: number): this
 
@@ -157,7 +161,7 @@ declare class Sound {
   getSpeed(): number
 
   /**
-   * Speed of the audio playback.
+   * Speed of the audio playback (iOS Only).
    * @param value
    */
   setSpeed(value: number): this

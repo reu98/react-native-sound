@@ -279,12 +279,27 @@ Sound.prototype.setSpeakerphoneOn = function(value) {
   }
 };
 
+Sound.switchAudioOutput = function(value) {
+  RNSound.switchAudioOutput(value);
+};
+
+Sound.setSpeakerDefault = function() {
+  if (IsAndroid) {
+    RNSound.setSpeakerDefault()
+  }
+}
+
+
 // ios only
 
 // This is deprecated.  Call the static one instead.
 
 Sound.prototype.setCategory = function(value) {
   Sound.setCategory(value, false);
+}
+
+Sound.prototype.switchAudioOutput = function(value) {
+  Sound.switchAudioOutput(value);
 }
 
 Sound.prototype.isPlaying = function() {

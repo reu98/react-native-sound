@@ -1,7 +1,7 @@
 #import "RNSound.h"
 
-#if __has_include("RCTUtils.h")
-#import "RCTUtils.h"
+#if __has_include(<React/RCTUtils.h>)
+#import <React/RCTUtils.h>
 #else
 #import <React/RCTUtils.h>
 #endif
@@ -13,6 +13,8 @@
 
 @synthesize _key = _key;
 
+@synthesize _isSpeakerOn = _isSpeakerOn;
+
 - (void)audioSessionChangeObserver:(NSNotification *)notification {
     NSDictionary *userInfo = notification.userInfo;
     AVAudioSessionRouteChangeReason audioSessionRouteChangeReason =
@@ -21,19 +23,19 @@
         [userInfo[@"AVAudioSessionInterruptionTypeKey"] longValue];
     AVAudioPlayer *player = [self playerForKey:self._key];
     if (audioSessionInterruptionType == AVAudioSessionInterruptionTypeEnded) {
-        if (player) {
+        if (player && player.isPlaying) {
             [player play];
             [self setOnPlay:YES forPlayerKey:self._key];
         }
     }
-    else if (audioSessionRouteChangeReason ==
+    if (audioSessionRouteChangeReason ==
         AVAudioSessionRouteChangeReasonOldDeviceUnavailable) {
         if (player) {
             [player pause];
             [self setOnPlay:NO forPlayerKey:self._key];
         }
     }
-    else if (audioSessionInterruptionType == AVAudioSessionInterruptionTypeBegan) {
+    if (audioSessionInterruptionType == AVAudioSessionInterruptionTypeBegan) {
         if (player) {
             [player pause];
             [self setOnPlay:NO forPlayerKey:self._key];
@@ -106,6 +108,10 @@ RCT_EXPORT_MODULE();
                                      @"NSLibraryDirectory",
                                      [self getDirectory:NSCachesDirectory],
                                      @"NSCachesDirectory", nil];
+}
+
+RCT_EXPORT_METHOD(setSpeakerDefault) {
+    // No Action
 }
 
 RCT_EXPORT_METHOD(enable : (BOOL)enabled) {
@@ -184,6 +190,35 @@ RCT_EXPORT_METHOD(setCategory
     }
 }
 
+RCT_EXPORT_METHOD(switchAudioOutput: (BOOL *)isSpeckerPhoneOn) {
+  NSError* error;
+  AVAudioSession* session = [AVAudioSession sharedInstance];
+    
+    if (isSpeckerPhoneOn) {
+        [session setCategory:AVAudioSessionCategoryPlayAndRecord error:&error];
+        
+        [session setMode:AVAudioSessionModeVoiceChat error:&error];
+        NSLog(@"Setting audio output");
+      if (isSpeckerPhoneOn) // Enable speaker
+      {
+        [session overrideOutputAudioPort:AVAudioSessionPortOverrideSpeaker error:&error];
+          NSLog(@"Enable Speaker");
+      }
+      else // Disable speaker
+      {
+        [session overrideOutputAudioPort:AVAudioSessionPortOverrideNone error:&error];
+          NSLog(@"Disable Speaker");
+      }
+        
+    } else {
+        [session setCategory:AVAudioSessionCategoryPlayback error:&error];
+        [session setMode:AVAudioSessionModeMoviePlayback error:&error];
+    }
+
+
+  [session setActive:YES error:&error];
+}
+
 RCT_EXPORT_METHOD(enableInSilenceMode : (BOOL)enabled) {
     AVAudioSession *session = [AVAudioSession sharedInstance];
     [session setCategory:AVAudioSessionCategoryPlayback error:nil];
@@ -245,12 +280,7 @@ RCT_EXPORT_METHOD(play
         addObserver:self
            selector:@selector(audioSessionChangeObserver:)
                name:AVAudioSessionRouteChangeNotification
-             object:[AVAudioSession sharedInstance]];
-    [[NSNotificationCenter defaultCenter]
-        addObserver:self
-           selector:@selector(audioSessionChangeObserver:)
-               name:AVAudioSessionInterruptionNotification
-             object:[AVAudioSession sharedInstance]];
+             object:nil];
     self._key = key;
     AVAudioPlayer *player = [self playerForKey:key];
     if (player) {
